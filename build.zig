@@ -15,8 +15,16 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    // Dependencies ////////////////////////////////////////////////////////////
+    const mecha = b.dependency("mecha", .{
+        .target = target,
+        .optimize = optimize,
+    }).module("mecha");
+
+    // Dependencies ////////////////////////////////////////////////////////////
+
     const lib = b.addStaticLibrary(.{
-        .name = "zig-8086",
+        .name = "default",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = b.path("src/root.zig"),
@@ -24,17 +32,42 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Modules ////////////////////////////////////////////////////////////
+    const op = b.addModule("op", .{
+        .root_source_file = b.path("src/op.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const parser = b.addModule("parser", .{
+        .root_source_file = b.path("src/parser/parser.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Modules ////////////////////////////////////////////////////////////
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
     b.installArtifact(lib);
 
     const exe = b.addExecutable(.{
-        .name = "zig-8086",
+        .name = "default",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+
+    // Modules ////////////////////////////////////////////////////////////
+    lib.root_module.addImport("mecha", mecha);
+    lib.root_module.addImport("op", op);
+    lib.root_module.addImport("parser", parser);
+
+    exe.root_module.addImport("mecha", mecha);
+    exe.root_module.addImport("op", op);
+    exe.root_module.addImport("parser", parser);
+    // Modules ////////////////////////////////////////////////////////////
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
@@ -72,6 +105,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    lib_unit_tests.root_module.addImport("mecha", mecha);
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
     const exe_unit_tests = b.addTest(.{
@@ -80,6 +114,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    exe_unit_tests.root_module.addImport("mecha", mecha);
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to

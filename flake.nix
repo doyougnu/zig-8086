@@ -15,6 +15,7 @@
         buildInputs = [
           pkgs.zig            # Adds the Zig compiler
           pkgs.zls            # Adds Zig Language Server
+          pkgs.nasm
         ];
       };
     };
