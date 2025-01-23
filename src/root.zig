@@ -58,3 +58,8 @@ test "rgb" {
     try testing.expectEqual(@as(u8, 0), d.g);
     try testing.expectEqual(@as(u8, 0), d.b);
 }
+const expect = std.testing.expect;
+
+test "always succeeds" {
+    try expect(true);
+}

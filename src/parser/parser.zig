@@ -30,3 +30,10 @@ pub const rgb = mecha.combine(.{
     mecha.ascii.char('#').discard(),
     mecha.oneOf(.{ rgb2, rgb1 }),
 });
+
+const expect = std.testing.expect;
+test "testing simple sum" {
+    const a: u8 = 2;
+    const b: u8 = 2;
+    try expect((a + b) == 4);
+}
