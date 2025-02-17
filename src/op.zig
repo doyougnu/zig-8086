@@ -310,7 +310,7 @@ pub const op_table = [_]Op{
     ._mov,
     ._mov,
     ._mov,
-    ._mov,
+    ._mov, // 0xBB
     ._mov,
     ._mov,
     ._mov,
@@ -323,20 +323,7 @@ pub const op_table = [_]Op{
     ._lds,
     ._mov,
     ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._mov,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
+    ._mov, // 0xC7
     ._notused,
     ._notused,
     ._ret,
@@ -345,52 +332,30 @@ pub const op_table = [_]Op{
     ._int,
     ._into,
     ._iret,
-    ._rol,
-    ._ror,
-    ._rcl,
-    ._rcr,
-    ._sal_shl,
-    ._shr,
-    ._notused,
-    ._sar,
-    ._rol,
-    ._ror,
-    ._rcl,
-    ._rcr,
-    ._sal_shl,
-    ._shr,
-    ._notused,
-    ._sar,
-    ._rol,
-    ._ror,
-    ._rcl,
-    ._rcr,
-    ._sal_shl,
-    ._shr,
-    ._notused,
-    ._sar,
-    ._rol,
-    ._ror,
-    ._rcl,
-    ._rcr,
-    ._sal_shl,
-    ._shr,
-    ._notused,
-    ._sar,
-    ._aam,
+    ._byte2,
+    ._byte2,
+    ._byte2,
+    ._aam, // 0xD4
     ._aad,
     ._notused,
     ._xlat,
+    ._esc, // 0xD8
     ._esc,
-    ._loopne_loopze,
+    ._esc,
+    ._esc,
+    ._esc,
+    ._esc,
+    ._esc,
+    ._esc,
+    ._loopne_loopze, // 0xE0
     ._loope_loopz,
     ._loop,
     ._jcxz,
-    ._in,
-    ._in,
+    ._in, // this was jmp
+    ._in, // 0xE5
+    ._out, // this was in
     ._out,
-    ._out,
-    ._call,
+    ._call, // 0xE8 // this is out for some reason
     ._jmp,
     ._jmp,
     ._jmp,
@@ -403,44 +368,17 @@ pub const op_table = [_]Op{
     ._repne_repnz,
     ._rep_repe_repz,
     ._hlt,
-    ._cmc,
-    ._test,
-    ._notused,
-    ._not,
-    ._neg,
-    ._mul,
-    ._imul,
-    ._div,
-    ._idiv,
-    ._test,
-    ._notused,
-    ._not,
-    ._neg,
-    ._mul,
-    ._imul,
-    ._div,
-    ._idiv,
+    ._cmc, // 0xF5
+    ._byte2,
+    ._byte2,
     ._clc,
     ._stc,
     ._cli,
     ._sti,
     ._cld,
-    ._std,
-    ._inc,
-    ._dec,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._inc,
-    ._dec,
-    ._call,
-    ._jmp,
-    ._jmp,
-    ._push,
-    ._notused,
+    ._std, // 0xFD
+    ._byte2,
+    ._byte2,
 };
 
 pub fn lookup(b: u8) Op {
@@ -493,4 +431,55 @@ test "ops lookup: test 0x84" {
 
 test "ops lookup: pop 0x8F" {
     try std.testing.expectEqual(Op._pop, lookup(0x8F));
+}
+
+test "ops lookup: mov 0xBB" {
+    try std.testing.expectEqual(Op._mov, lookup(0xBB));
+}
+
+test "ops lookup: byte2 0xD1" {
+    try std.testing.expectEqual(Op._byte2, lookup(0xD1));
+}
+
+test "ops lookup: aam 0xD4" {
+    try std.testing.expectEqual(Op._aam, lookup(0xD4));
+}
+
+test "ops lookup: in 0xE4" {
+    try std.testing.expectEqual(Op._in, lookup(0xE4));
+}
+test "ops lookup: in 0xE5" {
+    try std.testing.expectEqual(Op._in, lookup(0xE5));
+}
+
+test "ops lookup: out 0xE6" {
+    try std.testing.expectEqual(Op._out, lookup(0xE6));
+}
+
+test "ops lookup: out 0xE7" {
+    try std.testing.expectEqual(Op._out, lookup(0xE7));
+}
+
+test "ops lookup: _call 0xE8" {
+    try std.testing.expectEqual(Op._call, lookup(0xE8));
+}
+
+test "ops lookup: jmp 0xE9" {
+    try std.testing.expectEqual(Op._jmp, lookup(0xE9));
+}
+
+test "ops lookup: jmp 0xEA" {
+    try std.testing.expectEqual(Op._jmp, lookup(0xEA));
+}
+
+test "ops lookup: _lock in 0xF0" {
+    try std.testing.expectEqual(Op._lock, lookup(0xF0));
+}
+
+test "ops lookup: _cmc 0xF5" {
+    try std.testing.expectEqual(Op._cmc, lookup(0xF5));
+}
+
+test "ops lookup: _std 0xFD" {
+    try std.testing.expectEqual(Op._std, lookup(0xFD));
 }

@@ -11,13 +11,16 @@ pub fn main() !void {
     // const stdout = std.io.getStdOut().writer();
 
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("16 bit\n", .{});
 
     // if (args.len < 2) {
     //     try stdout.print("Usage: {} <command>\nCommands: start, stop, status\n", .{args[0]});
     //     return;
     // }
 
+    std.debug.print("16 bit\n", .{});
+    for (ops.op_table, 0..) |item, i| {
+        std.debug.print("Index 0x{x}: Value {}\n", .{ i, item });
+    }
     var buffer: [256]u8 = undefined; // Temporary buffer for reading
     var reader = stdin.reader();
 
