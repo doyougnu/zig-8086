@@ -17,23 +17,31 @@ pub fn main() !void {
     //     return;
     // }
 
-    std.debug.print("16 bit\n", .{});
-    for (ops.op_table, 0..) |item, i| {
-        std.debug.print("Index 0x{x}: Value {}\n", .{ i, item });
-    }
-    var buffer: [256]u8 = undefined; // Temporary buffer for reading
+    const BUF_LIMIT = 256; // 64 bytes at a time
+    var buffer: [BUF_LIMIT]u8 = undefined; // Temporary buffer for reading
     var reader = stdin.reader();
+    const bytes_read = try reader.read(&buffer);
+    var byte: u32 = 0;
 
-    while (true) {
-        const bytes_read = try reader.read(&buffer);
-        if (bytes_read == 0) break; // End of input (EOF)
+    std.debug.print("\nbytes_read: {}\n", .{bytes_read});
+    // TODO: use a ring buffer
+    while (byte < bytes_read) {
+        if (buffer[byte] == 0) break; // End of input (EOF)
 
         // Process or print the bytes read
-        const b = buffer[0];
+        const b = buffer[byte];
         const op = ops.lookup(b);
-        std.debug.print("Byte: {}\n", .{ops.lookup(0xF)});
+        const d: bool = (b & 0x2) > 0; // D is second byte
+        const w: bool = (b & 0x1) > 0; // W is first byte
+
+        std.debug.print("\nwriting: {}\n", .{d});
+        std.debug.print("dest: {}\n", .{w});
+        std.debug.print("\niter: {}\n", .{byte});
         std.debug.print("Byte: {b}\n", .{b});
         std.debug.print("Result: {}", .{op});
+
+        // iterate
+        byte += 1; // iterate to the next byte
     }
 }
 
