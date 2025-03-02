@@ -2,20 +2,24 @@ const std = @import("std");
 const mecha = @import("mecha");
 const ops = @import("op");
 const mem = std.mem;
+const regs = @import("reg");
+const builtin = @import("builtin");
 
-// pub fn parse
+const Op = ops.Op;
+const Reg = regs.Reg;
+const Mode = regs.Mode;
+
+const Instruction = struct {
+    op: ops.Op,
+    // todo allow dest/src from mem and immediates
+    dest: regs.Reg,
+    source: regs.Reg,
+};
 
 pub fn main() !void {
     // const args = std.process.args;
-    const stdin = std.io.getStdIn(); // Get the standard input strea
     // const stdout = std.io.getStdOut().writer();
-
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-
-    // if (args.len < 2) {
-    //     try stdout.print("Usage: {} <command>\nCommands: start, stop, status\n", .{args[0]});
-    //     return;
-    // }
+    const stdin = std.io.getStdIn(); // Get the standard input strea
 
     const BUF_LIMIT = 256; // 64 bytes at a time
     var buffer: [BUF_LIMIT]u8 = undefined; // Temporary buffer for reading
@@ -26,25 +30,75 @@ pub fn main() !void {
     std.debug.print("\nbytes_read: {}\n", .{bytes_read});
     // TODO: use a ring buffer
     while (byte < bytes_read) {
-        if (buffer[byte] == 0) break; // End of input (EOF)
-
         // Process or print the bytes read
         const b = buffer[byte];
-        const op = ops.lookup(b);
-        const d: bool = (b & 0x2) > 0; // D is second byte
-        const w: bool = (b & 0x1) > 0; // W is first byte
 
-        std.debug.print("\nwriting: {}\n", .{d});
-        std.debug.print("dest: {}\n", .{w});
-        std.debug.print("\niter: {}\n", .{byte});
+        // we get a byte, then destruct, then seek or iterate
+        const this_instruction = dispatch(&buffer, b);
+        const offset = this_instruction.offset;
+        const output = this_instruction.output;
+
+        // std.debug.print("Destinaton is in RegField: {}\n", .{is_dest});
+        // std.debug.print("Operates on word: {}\n", .{w});
+        std.debug.print("byte: {}\n", .{byte});
         std.debug.print("Byte: {b}\n", .{b});
-        std.debug.print("Result: {}", .{op});
+        std.debug.print("Result: {}\n", .{output});
+        std.debug.print("----------------------------\n\n", .{});
 
         // iterate
-        byte += 1; // iterate to the next byte
+        byte += offset; // iterate to the next byte, each instruction decides
+        // the offset to the next instruction
     }
 }
 
+// returns the offset to the next byte to read
+fn dispatch(buf: []u8, bptr: u32) struct { offset: u8, output: Instruction } {
+
+    // the byte itself will tell us where to seek to
+    const b = buf[bptr];
+    const op = ops.lookup(b);
+    const is_dest: bool = (b & 0x2) > 0;
+    const w: bool = (b & 0x1) > 0;
+
+    // these fields must come from the next byte
+    // const next, const newOutput = dispatch(buf, bptr + 1, output);
+    const h = dispatchByte2(buf[bptr + 1], op);
+    const reg0 = if (w) regs.SHORT_REGISTERS_TABLE[h.reg] else regs.LONG_REGISTERS_TABLE[h.reg];
+    const reg1 = if (w) regs.SHORT_REGISTERS_TABLE[h.rm] else regs.LONG_REGISTERS_TABLE[h.rm];
+    // we default to reg0 being dest
+    var result = Instruction{ .op = op, .dest = reg0, .source = reg1 };
+
+    if (!is_dest) { // then reg1 is the destination
+        result.dest = reg1;
+        result.source = reg0;
+    }
+    return .{ .offset = 2, .output = result };
+}
+
+// we can dispatch by instruction, and then return a struct with the decomp
+// functions that will read the second byte
+
+// Question: does the second byte dictate whether we need to read the third and
+// fourth?
+// Answer: No, the mod field does
+const Byte2 = struct { mod: u8, reg: u8, rm: u8 };
+
+// TODO: rename, this function reads the second byte
+fn dispatchByte2(b: u8, op: ops.Op) Byte2 {
+    if (op == Op._mov) {
+        return .{ .mod = b >> 5, .reg = (b & 0b00111000) >> 3, .rm = (b & 0x3) };
+    }
+    return .{ .mod = b >> 5, .reg = (b & 0b00111000) >> 3, .rm = (b & 0x3) };
+}
+
+// fn movByte2(b: u8) struct { u8, std.ArrayList(Instruction) } {
+//     const mod: u8 = b >> 5;
+//     const reg: u8 = (b & 0b00111000) >> 3;
+//     const rm: u8 = (b & 0x3);
+// }
+
+// fn movByte3(b:u8) {
+// }
 // pub fn load(reader: anytype, allocator: mem.Allocator) ![]const u8 {
 //     var bytes: [2]u8 = undefined;
 //     var res = try reader.readAll(&bytes);

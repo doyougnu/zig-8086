@@ -38,6 +38,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const reg = b.addModule("reg", .{
+        .root_source_file = b.path("src/reg.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const parser = b.addModule("parser", .{
         .root_source_file = b.path("src/parser/parser.zig"),
@@ -62,10 +67,12 @@ pub fn build(b: *std.Build) void {
     // Modules ////////////////////////////////////////////////////////////
     lib.root_module.addImport("mecha", mecha);
     lib.root_module.addImport("op", op);
+    lib.root_module.addImport("reg", reg);
     lib.root_module.addImport("parser", parser);
 
     exe.root_module.addImport("mecha", mecha);
     exe.root_module.addImport("op", op);
+    exe.root_module.addImport("reg", reg);
     exe.root_module.addImport("parser", parser);
     // Modules ////////////////////////////////////////////////////////////
 
