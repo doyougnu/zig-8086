@@ -3,7 +3,7 @@ const std = @import("std");
 pub const byte = u8;
 pub const opcode = u8;
 
-pub const Op = enum {
+pub const Op = enum(u8) {
     _nop,
     _mov,
     _movs,
@@ -102,287 +102,327 @@ pub const Op = enum {
     _sti,
     _cld,
     _std,
+    _CountSentinel,
 };
 
 pub const Direction = enum { source, destination };
 pub const ByteOrWord = enum { isbyte, isword };
-pub const byte1 = struct { op: Op, direction: Direction, byte_or_word: ByteOrWord };
 
-// look dependant types!
-// pub fn foo(t: type) type {
-//     var ty: type = bool;
-//     if (t == bool) {
-//         ty = u32;
-//     } else {
-//         ty = Op;
-//     }
-//     return ty;
-// }
-
-// const ok = foo(opcode);
-
-// pub fn bar() ok {
-//     return 2;
-// }
-
-// // the opcode is 6 bits, so max of 64 possible ops but the 6 bit encoding is not
-// unique so we use the full byte to dispatch
-// see table 4-13 in the 8086 1979 manual
-pub const op_table = [_]Op{
-    ._add, ._add, ._add, ._add, ._add, ._add,
-    ._push, //06
-    ._pop, // 07
-    ._or,
-    ._or,
-    ._or,
-    ._or,
-    ._or, ._or, // 0D
-    ._push, // 0E
-    ._notused, // 0F
-    ._adc,
-    ._adc,
-    ._adc,
-    ._adc,
-    ._adc,
-    ._adc, // 15
-    ._push,
-    ._pop,
-    ._sbb,
-    ._sbb,
-    ._sbb,
-    ._sbb,
-    ._sbb,
-    ._sbb, // 1D
-    ._push,
-    ._pop,
-    ._and,
-    ._and,
-    ._and,
-    ._and,
-    ._and,
-    ._and, // 0x25
-    ._es,
-    ._daa,
-    ._sub,
-    ._sub,
-    ._sub,
-    ._sub,
-    ._sub,
-    ._sub,
-    ._cs,
-    ._das,
-    ._xor,
-    ._xor,
-    ._xor,
-    ._xor,
-    ._xor,
-    ._xor,
-    ._ss, // 0x36
-    ._aaa,
-    ._cmp,
-    ._cmp,
-    ._cmp,
-    ._cmp,
-    ._cmp,
-    ._cmp,
-    ._ds,
-    ._aas,
-    ._inc,
-    ._inc,
-    ._inc,
-    ._inc,
-    ._inc,
-    ._inc,
-    ._inc,
-    ._inc, // 0x47
-    ._dec,
-    ._dec,
-    ._dec,
-    ._dec,
-    ._dec,
-    ._dec,
-    ._dec,
-    ._dec,
-    ._push,
-    ._push,
-    ._push,
-    ._push,
-    ._push,
-    ._push,
-    ._push,
-    ._push,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._pop,
-    ._notused, // 0x67
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._notused,
-    ._jo, // 0x70
-    ._jno,
-    ._jb_jnae_jc,
-    ._jnb_jae_jnc,
-    ._je_jz,
-    ._jne_jnz,
-    ._jbe_jna,
-    ._jnbe_ja,
-    ._js,
-    ._jns,
-    ._jp_jpe,
-    ._jnp_jpo,
-    ._jl_jnge,
-    ._jnl_jge,
-    ._jle_jng,
-    ._jnle_jg,
-    ._byte2, // 0x80
-    ._byte2, // 0x81
-    ._byte2, // 0x82
-    ._byte2, // 0x83
-    ._test, // 0x84
-    ._test,
-    ._xchg,
-    ._xchg,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._lea,
-    ._mov,
-    ._pop, // 0x8F
-    ._nop,
-    ._xchg,
-    ._xchg,
-    ._xchg,
-    ._xchg,
-    ._xchg,
-    ._xchg,
-    ._xchg,
-    ._cbw,
-    ._cwd,
-    ._call,
-    ._wait,
-    ._pushf,
-    ._popf,
-    ._sahf,
-    ._lahf,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._movs,
-    ._movs,
-    ._cmps,
-    ._cmps,
-    ._test,
-    ._test,
-    ._stos,
-    ._stos,
-    ._lods,
-    ._lods,
-    ._scas,
-    ._scas,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov, // 0xBB
-    ._mov,
-    ._mov,
-    ._mov,
-    ._mov,
-    ._notused,
-    ._notused,
-    ._ret,
-    ._ret,
-    ._les,
-    ._lds,
-    ._mov,
-    ._notused,
-    ._mov, // 0xC7
-    ._notused,
-    ._notused,
-    ._ret,
-    ._ret,
-    ._int,
-    ._int,
-    ._into,
-    ._iret,
-    ._byte2,
-    ._byte2,
-    ._byte2,
-    ._aam, // 0xD4
-    ._aad,
-    ._notused,
-    ._xlat,
-    ._esc, // 0xD8
-    ._esc,
-    ._esc,
-    ._esc,
-    ._esc,
-    ._esc,
-    ._esc,
-    ._esc,
-    ._loopne_loopze, // 0xE0
-    ._loope_loopz,
-    ._loop,
-    ._jcxz,
-    ._in, // this was jmp
-    ._in, // 0xE5
-    ._out, // this was in
-    ._out,
-    ._call, // 0xE8 // this is out for some reason
-    ._jmp,
-    ._jmp,
-    ._jmp,
-    ._in,
-    ._in,
-    ._out,
-    ._out,
-    ._lock,
-    ._notused,
-    ._repne_repnz,
-    ._rep_repe_repz,
-    ._hlt,
-    ._cmc, // 0xF5
-    ._byte2,
-    ._byte2,
-    ._clc,
-    ._stc,
-    ._cli,
-    ._sti,
-    ._cld,
-    ._std, // 0xFD
-    ._byte2,
-    ._byte2,
+pub const Byte1 = struct {
+    op: Op,
+    direction: Direction,
+    byte_or_word: ByteOrWord,
 };
 
-pub fn lookup(b: u8) Op {
-    return op_table[b];
+pub const OpDispatch = struct {
+    op: Op,
+    bytes_to_read: u8 = 0,
+};
+
+// NOTE: bytes_to_read should be a mininum but is a maximum. This encodes Table
+// 4-13 but depending on the mod field we may need to read more or less bytes.
+// For example, in 0x8b with mod = 00 we need to fetch 2 bytes for a direct
+// memory address, but with mod = 01 we need to fetch only 1 byte for a single
+// 8-bit displacement
+pub const OP_TABLE = [_]OpDispatch{
+    .{ .op = ._add, .bytes_to_read = 2 },
+    .{ .op = ._add, .bytes_to_read = 2 },
+    .{ .op = ._add, .bytes_to_read = 2 },
+    .{ .op = ._add, .bytes_to_read = 2 },
+    .{ .op = ._add, .bytes_to_read = 1 },
+    .{ .op = ._add, .bytes_to_read = 2 },
+    .{ .op = ._push },
+    .{ .op = ._pop },
+    .{ .op = ._or, .bytes_to_read = 2 }, // 0x08
+    .{ .op = ._or, .bytes_to_read = 2 },
+    .{ .op = ._or, .bytes_to_read = 2 },
+    .{ .op = ._or, .bytes_to_read = 2 },
+    .{ .op = ._or, .bytes_to_read = 1 },
+    .{ .op = ._or, .bytes_to_read = 2 },
+    .{ .op = ._push },
+    .{ .op = ._notused },
+    .{ .op = ._adc, .bytes_to_read = 3 }, // 0x10
+    .{ .op = ._adc, .bytes_to_read = 3 },
+    .{ .op = ._adc, .bytes_to_read = 3 },
+    .{ .op = ._adc, .bytes_to_read = 3 },
+    .{ .op = ._adc, .bytes_to_read = 1 },
+    .{ .op = ._adc, .bytes_to_read = 2 },
+    .{ .op = ._push },
+    .{ .op = ._pop },
+    .{ .op = ._sbb, .bytes_to_read = 2 }, // 0x18
+    .{ .op = ._sbb, .bytes_to_read = 2 },
+    .{ .op = ._sbb, .bytes_to_read = 2 },
+    .{ .op = ._sbb, .bytes_to_read = 2 },
+    .{ .op = ._sbb, .bytes_to_read = 1 },
+    .{ .op = ._sbb, .bytes_to_read = 2 },
+    .{ .op = ._push },
+    .{ .op = ._pop },
+    .{ .op = ._and, .bytes_to_read = 2 }, // 0x20
+    .{ .op = ._and, .bytes_to_read = 2 },
+    .{ .op = ._and, .bytes_to_read = 2 },
+    .{ .op = ._and, .bytes_to_read = 2 },
+    .{ .op = ._and, .bytes_to_read = 1 },
+    .{ .op = ._and, .bytes_to_read = 2 },
+    .{ .op = ._es },
+    .{ .op = ._daa },
+
+    .{ .op = ._sub, .bytes_to_read = 2 },
+    .{ .op = ._sub, .bytes_to_read = 2 },
+    .{ .op = ._sub, .bytes_to_read = 2 },
+    .{ .op = ._sub, .bytes_to_read = 2 },
+    .{ .op = ._sub, .bytes_to_read = 1 },
+    .{ .op = ._sub, .bytes_to_read = 2 },
+    .{ .op = ._cs },
+    .{ .op = ._das },
+
+    .{ .op = ._xor, .bytes_to_read = 2 },
+    .{ .op = ._xor, .bytes_to_read = 2 },
+    .{ .op = ._xor, .bytes_to_read = 2 },
+    .{ .op = ._xor, .bytes_to_read = 2 },
+    .{ .op = ._xor, .bytes_to_read = 1 },
+    .{ .op = ._xor, .bytes_to_read = 2 },
+    .{ .op = ._ss },
+    .{ .op = ._aaa },
+
+    .{ .op = ._cmp, .bytes_to_read = 2 },
+    .{ .op = ._cmp, .bytes_to_read = 2 },
+    .{ .op = ._cmp, .bytes_to_read = 2 },
+    .{ .op = ._cmp, .bytes_to_read = 2 },
+    .{ .op = ._cmp, .bytes_to_read = 1 },
+    .{ .op = ._cmp, .bytes_to_read = 2 },
+    .{ .op = ._ds },
+    .{ .op = ._aas },
+
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+    .{ .op = ._inc },
+
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+    .{ .op = ._dec },
+
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+    .{ .op = ._push },
+
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+    .{ .op = ._pop },
+
+    // 0x60–0x6F
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+
+    // jumps 0x70–0x7F
+    .{ .op = ._jo, .bytes_to_read = 1 },
+    .{ .op = ._jno, .bytes_to_read = 1 },
+    .{ .op = ._jb_jnae_jc, .bytes_to_read = 1 },
+    .{ .op = ._jnb_jae_jnc, .bytes_to_read = 1 },
+    .{ .op = ._je_jz, .bytes_to_read = 1 },
+    .{ .op = ._jne_jnz, .bytes_to_read = 1 },
+    .{ .op = ._jbe_jna, .bytes_to_read = 1 },
+    .{ .op = ._jnbe_ja, .bytes_to_read = 1 },
+    .{ .op = ._js, .bytes_to_read = 1 },
+    .{ .op = ._jns, .bytes_to_read = 1 },
+    .{ .op = ._jp_jpe, .bytes_to_read = 1 },
+    .{ .op = ._jnp_jpo, .bytes_to_read = 1 },
+    .{ .op = ._jl_jnge, .bytes_to_read = 1 },
+    .{ .op = ._jnl_jge, .bytes_to_read = 1 },
+    .{ .op = ._jle_jng, .bytes_to_read = 1 },
+    .{ .op = ._jnle_jg, .bytes_to_read = 1 },
+
+    // 0x80+
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+    .{ .op = ._byte2, .bytes_to_read = 4 },
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+    .{ .op = ._test, .bytes_to_read = 2 },
+    .{ .op = ._test, .bytes_to_read = 2 },
+    .{ .op = ._xchg, .bytes_to_read = 2 }, // 0x86
+    .{ .op = ._xchg, .bytes_to_read = 2 }, // 0x87
+    .{ .op = ._mov, .bytes_to_read = 2 }, // 0x88
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 }, // 0x8A
+    .{ .op = ._mov, .bytes_to_read = 2 }, // 0x8B
+    .{ .op = ._mov, .bytes_to_read = 2 }, // 0x8C
+    .{ .op = ._lea, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._pop, .bytes_to_read = 2 },
+    .{ .op = ._nop }, // 0x90
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+    .{ .op = ._xchg },
+
+    .{ .op = ._cbw },
+    .{ .op = ._cwd },
+    .{ .op = ._call, .bytes_to_read = 4 },
+    .{ .op = ._wait },
+    .{ .op = ._pushf },
+    .{ .op = ._popf },
+    .{ .op = ._sahf },
+    .{ .op = ._lahf },
+
+    // MOV immediates + string ops
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._movs },
+    .{ .op = ._movs },
+    .{ .op = ._cmps },
+    .{ .op = ._cmps },
+
+    .{ .op = ._test, .bytes_to_read = 1 },
+    .{ .op = ._test, .bytes_to_read = 2 },
+    .{ .op = ._stos },
+    .{ .op = ._stos },
+    .{ .op = ._lods },
+    .{ .op = ._lods },
+    .{ .op = ._scas },
+    .{ .op = ._scas },
+
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+    .{ .op = ._mov, .bytes_to_read = 1 },
+
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 2 },
+
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._ret, .bytes_to_read = 2 },
+    .{ .op = ._ret },
+    .{ .op = ._les, .bytes_to_read = 2 }, // 0xC4
+    .{ .op = ._lds, .bytes_to_read = 2 },
+    .{ .op = ._mov, .bytes_to_read = 3 },
+    .{ .op = ._notused },
+
+    .{ .op = ._mov, .bytes_to_read = 4 },
+    .{ .op = ._notused },
+    .{ .op = ._notused },
+    .{ .op = ._ret, .bytes_to_read = 2 },
+    .{ .op = ._ret },
+    .{ .op = ._int },
+    .{ .op = ._int, .bytes_to_read = 1 },
+    .{ .op = ._into },
+    .{ .op = ._iret }, // 0xCF
+
+    .{ .op = ._byte2, .bytes_to_read = 2 },
+    .{ .op = ._byte2, .bytes_to_read = 2 },
+    .{ .op = ._byte2, .bytes_to_read = 2 },
+    .{ .op = ._aam, .bytes_to_read = 1 },
+    .{ .op = ._aad, .bytes_to_read = 1 },
+    .{ .op = ._notused },
+    .{ .op = ._xlat },
+
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 3 },
+    .{ .op = ._esc, .bytes_to_read = 1 },
+
+    .{ .op = ._loopne_loopze, .bytes_to_read = 1 },
+    .{ .op = ._loope_loopz, .bytes_to_read = 1 },
+    .{ .op = ._loop, .bytes_to_read = 1 },
+    .{ .op = ._jcxz, .bytes_to_read = 1 },
+
+    .{ .op = ._in, .bytes_to_read = 1 },
+    .{ .op = ._in, .bytes_to_read = 1 },
+    .{ .op = ._out, .bytes_to_read = 1 },
+    .{ .op = ._out, .bytes_to_read = 1 },
+
+    .{ .op = ._call, .bytes_to_read = 2 },
+    .{ .op = ._jmp, .bytes_to_read = 2 },
+    .{ .op = ._jmp, .bytes_to_read = 4 },
+    .{ .op = ._jmp, .bytes_to_read = 1 },
+
+    .{ .op = ._in },
+    .{ .op = ._in },
+    .{ .op = ._out },
+    .{ .op = ._out },
+
+    .{ .op = ._lock },
+    .{ .op = ._notused },
+    .{ .op = ._repne_repnz },
+    .{ .op = ._rep_repe_repz },
+    .{ .op = ._hlt },
+    .{ .op = ._cmc },
+
+    .{ .op = ._byte2, .bytes_to_read = 4 },
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+
+    .{ .op = ._clc },
+    .{ .op = ._stc },
+    .{ .op = ._cli },
+    .{ .op = ._sti },
+    .{ .op = ._cld },
+    .{ .op = ._std },
+
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+    .{ .op = ._byte2, .bytes_to_read = 3 },
+};
+
+/// Convert enum → string
+pub fn showOp(op: Op) []const u8 {
+    const name = @tagName(op);
+    return name[1..];
+}
+
+/// Lookup opcode dispatch
+pub fn lookup(b: u8) OpDispatch {
+    return OP_TABLE[b];
 }
 
 // START: remake the op table to be 256 entries, then create a sentinal to check the second byte

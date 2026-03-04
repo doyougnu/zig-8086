@@ -41,3 +41,8 @@ pub const LONG_REGISTERS_TABLE = [_]Reg{
     ._si,
     ._di,
 };
+
+pub fn showReg(r: Reg) []const u8 {
+    const name = @tagName(r);
+    return name[1..]; // strip the leading '_'
+}
