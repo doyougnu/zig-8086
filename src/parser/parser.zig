@@ -100,23 +100,23 @@ pub const EFF_ADDR_CALC_TABLE: [24]AddrCalc = .{
     AddrCalc{ .tag = 0b0000_0110, .base = null, .index = null, .displacement = null },
     AddrCalc{ .tag = 0b0000_0111, .base = null, .index = ._bx, .displacement = null },
     // MOD == 01: 8-bit displacement
-    AddrCalc{ .tag = 0b0000_1000, .base = ._bx, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1001, .base = ._bx, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1010, .base = ._bp, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1011, .base = ._bp, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1100, .base = null, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1101, .base = null, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1110, .base = null, .index = ._bp, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0000_1111, .base = null, .index = ._bx, .displacement = NEEDS_DISPLACEMENT },
+    AddrCalc{ .tag = 0b0000_1000, .base = ._bx, .index = ._si, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1001, .base = ._bx, .index = ._di, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1010, .base = ._bp, .index = ._si, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1011, .base = ._bp, .index = ._di, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1100, .base = ._si, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1101, .base = ._di, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1110, .base = ._bp, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0000_1111, .base = ._bx, .index = null, .displacement = null },
     // MOD == 10: 16-bit displacement
-    AddrCalc{ .tag = 0b0001_0000, .base = ._bx, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0001, .base = ._bx, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0010, .base = ._bp, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0011, .base = ._bp, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0100, .base = null, .index = ._si, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0101, .base = null, .index = ._di, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0110, .base = null, .index = ._bp, .displacement = NEEDS_DISPLACEMENT },
-    AddrCalc{ .tag = 0b0001_0111, .base = null, .index = ._bx, .displacement = NEEDS_DISPLACEMENT },
+    AddrCalc{ .tag = 0b0001_0000, .base = ._bx, .index = ._si, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0001, .base = ._bx, .index = ._di, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0010, .base = ._bp, .index = ._si, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0011, .base = ._bp, .index = ._di, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0100, .base = ._si, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0101, .base = ._di, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0110, .base = ._bp, .index = null, .displacement = null },
+    AddrCalc{ .tag = 0b0001_0111, .base = ._bx, .index = null, .displacement = null },
 };
 
 // ---------------- Show utils ----------------
@@ -138,8 +138,10 @@ pub fn showAddrCalc(ac: AddrCalc) []const u8 {
     }
 
     if (ac.displacement) |d| {
-        if (!first) writer.print(" + ", .{}) catch unreachable;
-        writer.print("{d}", .{d}) catch unreachable;
+        if (d > 0) {
+            if (!first) writer.print(" + ", .{}) catch unreachable;
+            writer.print("{d}", .{d}) catch unreachable;
+        }
     }
 
     writer.print("]", .{}) catch unreachable;
