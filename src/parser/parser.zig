@@ -137,12 +137,10 @@ pub fn showAddrCalc(ac: AddrCalc) []const u8 {
         first = false;
     }
 
-    if (ac.displacement) |d| {
-        if (d > 0) {
-            if (!first) writer.print(" + ", .{}) catch unreachable;
-            writer.print("{d}", .{d}) catch unreachable;
-        }
-    }
+    if (ac.displacement) |d| if (d > 0) {
+        if (!first) writer.print(" + ", .{}) catch unreachable;
+        writer.print("{d}", .{d}) catch unreachable;
+    };
 
     writer.print("]", .{}) catch unreachable;
 
