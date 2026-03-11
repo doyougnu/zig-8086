@@ -56,11 +56,13 @@ pub const AddrCalc = struct {
 };
 
 // Imm wrapper
-pub const Imm = u16; // could wrap for newtype, for now simple alias
+pub const Imm8 = u8; // could wrap for newtype, for now simple alias
+pub const Imm16 = u16;
 
 pub const Addr = union(enum) {
     TReg: Reg,
-    T16Imm: Imm,
+    T8Imm: Imm8,
+    T16Imm: Imm16,
     TCalc: AddrCalc,
 };
 
@@ -148,11 +150,11 @@ pub fn showAddrCalc(ac: AddrCalc) []const u8 {
 }
 
 pub fn showAddr(a: ?Addr) ?[]const u8 {
-    // TODO: there must be a better way to switch on an optional than this:
     if (a) |addr| {
         return switch (addr) {
             .TReg => R.showReg(addr.TReg),
-            .T16Imm => std.fmt.allocPrint(std.heap.page_allocator, "{d}", .{addr.T16Imm}) catch unreachable,
+            .T8Imm => std.fmt.allocPrint(std.heap.page_allocator, "{d}", .{@as(i8, @bitCast(addr.T8Imm))}) catch unreachable,
+            .T16Imm => std.fmt.allocPrint(std.heap.page_allocator, "{d}", .{@as(i16, @bitCast(addr.T16Imm))}) catch unreachable,
             .TCalc => showAddrCalc(addr.TCalc),
         };
     } else return null;
@@ -184,8 +186,6 @@ fn _parse(buf: *IStream) !Instruction {
     const b: u8 = buf.read() orelse unreachable;
     const dispatch = op.lookup(b);
 
-    // START: for source addressing we reach unreachable code we still print
-    // correctly though so somehow we are not ending correctly
     return switch (dispatch.op) {
         ._mov => handleMov(buf, b),
         else => unreachable,
@@ -193,7 +193,7 @@ fn _parse(buf: *IStream) !Instruction {
 }
 
 fn handleMov(buf: *IStream, byte1: u8) !Instruction {
-    const reg_is_dest: bool = (byte1 & 0x2) == 0x2;
+    const reg_is_source: bool = (byte1 & 0x2) != 0x2;
     const w: bool = (byte1 & 0x1) != 0;
 
     // in a mov we will always need the next byte
@@ -202,6 +202,10 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
 
     var source: ?Addr = null;
     var dest: ?Addr = null;
+
+    // START: cleanup all this shit. the redundand dest source assignments, can
+    // dispatch on byte2 and mod to know how many bytes to read to keep the IO
+    // in the top of this function.
 
     // dispatch, we assum that reg_is_dest if false throughout, meaning that we
     // assum that the source is in the reg field
@@ -216,14 +220,14 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
                 .reg_mode => {
                     const rm = byte2 & MOV_RM_MASK;
 
-                    dest = Addr{
+                    source = Addr{
                         .TReg = if (w)
                             R.LONG_REGISTERS_TABLE[rm]
                         else
                             R.SHORT_REGISTERS_TABLE[rm],
                     };
 
-                    source = Addr{
+                    dest = Addr{
                         .TReg = if (w)
                             R.LONG_REGISTERS_TABLE[reg]
                         else
@@ -232,8 +236,8 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
                 },
                 .mem_mode => {
                     const rm = byte2 & MOV_RM_MASK;
-                    dest = Addr{ .TCalc = EFF_ADDR_CALC_TABLE[mod.asByte() >> 3 | rm] }; // TODO construct this in a type
-                    source = Addr{ .TReg = if (w) R.LONG_REGISTERS_TABLE[reg] else R.SHORT_REGISTERS_TABLE[reg] };
+                    source = Addr{ .TCalc = EFF_ADDR_CALC_TABLE[mod.asByte() >> 3 | rm] }; // TODO construct this in a type
+                    dest = Addr{ .TReg = if (w) R.LONG_REGISTERS_TABLE[reg] else R.SHORT_REGISTERS_TABLE[reg] };
                 },
                 .mem8_mode => {
                     // 1 mapsto 3 because we already read byte1, then create an array (so off by one)
@@ -242,9 +246,9 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
 
                     var d: AddrCalc = EFF_ADDR_CALC_TABLE[(mod.asByte() >> 3) | rm];
                     d.displacement = byte3;
-                    dest = Addr{ .TCalc = d };
+                    source = Addr{ .TCalc = d };
 
-                    source = Addr{
+                    dest = Addr{
                         .TReg = if (w)
                             R.LONG_REGISTERS_TABLE[reg]
                         else
@@ -260,9 +264,9 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
                     var d: AddrCalc = EFF_ADDR_CALC_TABLE[(mod.asByte() >> 3) | rm];
                     d.displacement = (@as(u32, byte4) << 8) | byte3;
 
-                    dest = Addr{ .TCalc = d };
+                    source = Addr{ .TCalc = d };
 
-                    source = Addr{
+                    dest = Addr{
                         .TReg = if (w)
                             R.LONG_REGISTERS_TABLE[reg]
                         else
@@ -275,24 +279,25 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
             const byte3 = buf.read() orelse return error.BadEncoding;
             const w2 = byte2 & 1;
 
-            dest = Addr{
+            source = Addr{
                 .TReg = if (w2 != 0)
                     R.LONG_REGISTERS_TABLE[0]
                 else
                     R.SHORT_REGISTERS_TABLE[0],
             };
 
-            source = Addr{ .T16Imm = (@as(u16, byte3) << 8) | byte2 };
+            dest = Addr{ .T16Imm = (@as(u16, byte3) << 8) | byte2 };
         },
-        0xB0...0xB7 => {
-            const reg = (byte2 & MOV_REG_MASK) >> 3;
+        0xB0...0xB7 => { // 8-bit immediate to a reg in this case, the reg is
+            // the 3 LSB of byte1 and byte2 is the immediate
+            const reg = byte1 & 0x7;
 
-            dest = Addr{ .TReg = R.SHORT_REGISTERS_TABLE[reg] };
-            source = Addr{ .T16Imm = byte2 };
+            source = Addr{ .TReg = R.SHORT_REGISTERS_TABLE[reg] };
+            dest = Addr{ .T8Imm = byte2 };
         },
-        0xB8...0xBF => {
+        0xB8...0xBF => { // 16-bit immediate to reg, byte1 dispatches reg
             const byte3 = buf.read() orelse return error.BadEncoding;
-            const reg = (byte1 & MOV_REG_MASK) >> 3;
+            const reg = byte1 & 0x7;
 
             dest = Addr{ .TReg = R.LONG_REGISTERS_TABLE[reg] };
             source = Addr{ .T16Imm = (@as(u16, byte3) << 8) | byte2 };
@@ -301,17 +306,17 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
             const byte3 = buf.read() orelse return error.BadEncoding;
             const byte4 = buf.read() orelse return error.BadEncoding;
             const byte5 = buf.read() orelse return error.BadEncoding;
-            source = Addr{ .T16Imm = byte5 };
+            dest = Addr{ .T16Imm = byte5 };
 
             const rm = byte2 & MOV_RM_MASK;
 
             const lea_idx = mod.asByte() | rm;
 
-            var dest_addr = EFF_ADDR_CALC_TABLE[lea_idx];
-            const dest_done: u32 = (@as(u32, byte4) << 8) | byte3;
-            dest_addr.displacement = dest_done;
+            var source_addr = EFF_ADDR_CALC_TABLE[lea_idx];
+            const source_done: u32 = (@as(u32, byte4) << 8) | byte3;
+            source_addr.displacement = source_done;
 
-            dest = Addr{ .TCalc = dest_addr };
+            source = Addr{ .TCalc = source_addr };
         },
         else => {
             const byte3: u8 = buf.read() orelse return error.BadEncoding;
@@ -319,16 +324,16 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
             const byte5: u8 = buf.read() orelse return error.BadEncoding;
             const byte6: u8 = buf.read() orelse return error.BadEncoding;
 
-            source = Addr{ .T16Imm = (@as(u16, byte6) << 8) | byte5 };
+            dest = Addr{ .T16Imm = (@as(u16, byte6) << 8) | byte5 };
 
             const rm = byte2 & MOV_RM_MASK;
 
             const lea_idx = mod.asByte() | rm;
 
-            var dest_addr = EFF_ADDR_CALC_TABLE[lea_idx];
-            dest_addr.displacement = (@as(u32, byte4) << 8) | byte3;
+            var source_addr = EFF_ADDR_CALC_TABLE[lea_idx];
+            source_addr.displacement = (@as(u32, byte4) << 8) | byte3;
 
-            dest = Addr{ .TCalc = dest_addr };
+            source = Addr{ .TCalc = source_addr };
         },
     }
 
@@ -336,8 +341,8 @@ fn handleMov(buf: *IStream, byte1: u8) !Instruction {
     // because we assumed that source was in the reg field
     const instr = Instruction{
         .op = ._mov,
-        .dest = if (reg_is_dest) source else dest,
-        .source = if (reg_is_dest) dest else source,
+        .dest = if (reg_is_source) source else dest,
+        .source = if (reg_is_source) dest else source,
     };
 
     return instr;

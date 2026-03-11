@@ -124,6 +124,7 @@ pub const OpDispatch = struct {
 // For example, in 0x8b with mod = 00 we need to fetch 2 bytes for a direct
 // memory address, but with mod = 01 we need to fetch only 1 byte for a single
 // 8-bit displacement
+// START: remove bytes_to_read
 pub const OP_TABLE = [_]OpDispatch{
     .{ .op = ._add, .bytes_to_read = 2 },
     .{ .op = ._add, .bytes_to_read = 2 },
@@ -424,8 +425,6 @@ pub fn showOp(op: Op) []const u8 {
 pub fn lookup(b: u8) OpDispatch {
     return OP_TABLE[b];
 }
-
-// START: remake the op table to be 256 entries, then create a sentinal to check the second byte
 
 const expect = std.testing.expect;
 
