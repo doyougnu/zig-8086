@@ -181,36 +181,23 @@ pub fn parse(buf: *IStream) ![]Instruction {
 
 fn _parse(buf: *IStream) !Instruction {
     if (buf.done()) return error.EndOfStream;
-    const b: u8 = buf.read() orelse return error.BadEncoding;
+    const b: u8 = buf.read() orelse unreachable;
     const dispatch = op.lookup(b);
 
+    // START: for source addressing we reach unreachable code we still print
+    // correctly though so somehow we are not ending correctly
     return switch (dispatch.op) {
-        ._mov => handleMov(buf, b, dispatch.bytes_to_read),
+        ._mov => handleMov(buf, b),
         else => unreachable,
     };
 }
 
-fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
+fn handleMov(buf: *IStream, byte1: u8) !Instruction {
     const reg_is_dest: bool = (byte1 & 0x2) == 0x2;
     const w: bool = (byte1 & 0x1) != 0;
 
-    // read remaining bytes
-    var bytes: [6]?u8 = .{
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-    };
-
-    var i: usize = 0;
-    while (i < toRead) : (i += 1) {
-        bytes[i] = buf.read();
-    }
-
     // in a mov we will always need the next byte
-    const byte2 = bytes[0] orelse return error.BadEncoding;
+    const byte2 = buf.read() orelse return error.BadEncoding;
     const mod = Mod.mk(byte2) orelse return error.BadEncoding;
 
     var source: ?Addr = null;
@@ -243,10 +230,14 @@ fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
                             R.SHORT_REGISTERS_TABLE[reg],
                     };
                 },
-                .mem_mode => {},
+                .mem_mode => {
+                    const rm = byte2 & MOV_RM_MASK;
+                    dest = Addr{ .TCalc = EFF_ADDR_CALC_TABLE[mod.asByte() >> 3 | rm] }; // TODO construct this in a type
+                    source = Addr{ .TReg = if (w) R.LONG_REGISTERS_TABLE[reg] else R.SHORT_REGISTERS_TABLE[reg] };
+                },
                 .mem8_mode => {
                     // 1 mapsto 3 because we already read byte1, then create an array (so off by one)
-                    const byte3: u8 = bytes[1] orelse return error.BadEncoding;
+                    const byte3: u8 = buf.read() orelse return error.BadEncoding;
                     const rm = byte2 & MOV_RM_MASK;
 
                     var d: AddrCalc = EFF_ADDR_CALC_TABLE[(mod.asByte() >> 3) | rm];
@@ -262,8 +253,8 @@ fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
                 },
                 .mem16_mode => {
                     // 1 mapsto 3 because we already read byte1, then create an array (so off by one)
-                    const byte3: u8 = bytes[1] orelse return error.BadEncoding;
-                    const byte4: u8 = bytes[2] orelse return error.BadEncoding;
+                    const byte3: u8 = buf.read() orelse return error.BadEncoding;
+                    const byte4: u8 = buf.read() orelse return error.BadEncoding; // bytes[2] orelse return error.BadEncoding;
                     const rm = byte2 & MOV_RM_MASK;
 
                     var d: AddrCalc = EFF_ADDR_CALC_TABLE[(mod.asByte() >> 3) | rm];
@@ -281,7 +272,7 @@ fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
             }
         },
         0xA0...0xA3 => {
-            const byte3 = bytes[1] orelse return error.BadEncoding;
+            const byte3 = buf.read() orelse return error.BadEncoding;
             const w2 = byte2 & 1;
 
             dest = Addr{
@@ -300,16 +291,16 @@ fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
             source = Addr{ .T16Imm = byte2 };
         },
         0xB8...0xBF => {
-            const byte3 = bytes[1] orelse return error.BadEncoding;
+            const byte3 = buf.read() orelse return error.BadEncoding;
             const reg = (byte1 & MOV_REG_MASK) >> 3;
 
             dest = Addr{ .TReg = R.LONG_REGISTERS_TABLE[reg] };
             source = Addr{ .T16Imm = (@as(u16, byte3) << 8) | byte2 };
         },
         0xC6 => {
-            const byte3 = bytes[1] orelse return error.BadEncoding;
-            const byte4 = bytes[2] orelse return error.BadEncoding;
-            const byte5 = bytes[3] orelse return error.BadEncoding;
+            const byte3 = buf.read() orelse return error.BadEncoding;
+            const byte4 = buf.read() orelse return error.BadEncoding;
+            const byte5 = buf.read() orelse return error.BadEncoding;
             source = Addr{ .T16Imm = byte5 };
 
             const rm = byte2 & MOV_RM_MASK;
@@ -323,10 +314,10 @@ fn handleMov(buf: *IStream, byte1: u8, toRead: u8) !Instruction {
             dest = Addr{ .TCalc = dest_addr };
         },
         else => {
-            const byte3: u8 = bytes[1] orelse return error.BadEncoding;
-            const byte4: u8 = bytes[2] orelse return error.BadEncoding;
-            const byte5: u8 = bytes[3] orelse return error.BadEncoding;
-            const byte6: u8 = bytes[4] orelse return error.BadEncoding;
+            const byte3: u8 = buf.read() orelse return error.BadEncoding;
+            const byte4: u8 = buf.read() orelse return error.BadEncoding;
+            const byte5: u8 = buf.read() orelse return error.BadEncoding;
+            const byte6: u8 = buf.read() orelse return error.BadEncoding;
 
             source = Addr{ .T16Imm = (@as(u16, byte6) << 8) | byte5 };
 

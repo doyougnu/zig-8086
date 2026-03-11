@@ -27,12 +27,12 @@ mov dx, [bp] ; this one is where we start to diverge
 mov si, bx
 
 ; Source address calculation plus 8-bit displacement
-mov ah, [bx + si + 4]           ; this is the instruction that kills us
+mov ah, [bx + si + 4]
 
 ; Source address calculation plus 16-bit displacement
-mov al, [bx + si + 4999]
+mov al, [bx + si + 499]
 
 ; Dest address calculation
-mov [bx + di], cx
-mov [bp + si], cl
-mov [bp], ch
+mov [bx + di], cx ; next up: wrong but exited gracefully
+mov [bp + si], cl               ; wrong but exited gracefully
+mov [bp], ch  ;; we exit successfully here
