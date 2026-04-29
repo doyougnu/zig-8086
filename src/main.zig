@@ -10,18 +10,19 @@ const Op = ops.Op;
 const Reg = regs.Reg;
 const Mode = regs.Mode;
 
-pub fn main() !void {
-    const allocator = std.heap.page_allocator;
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+pub fn main(init: std.process.Init) !void {
+    const gpa = init.gpa;
+    const io = init.io;
+
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     if (args.len < 2) {
         std.debug.print("usage: zig-8086 <file>\n", .{});
         return;
     }
 
-    const raw_data = try std.fs.cwd().readFileAlloc(allocator, args[1], 0xFFFFFFFF);
-    defer allocator.free(raw_data);
+    const raw_data = try std.Io.Dir.cwd().readFileAlloc(io, args[1], gpa, .limited(0xFFFFFFFF));
+    defer gpa.free(raw_data);
 
     var data: parser.IStream = .{
         .buffer = raw_data,
