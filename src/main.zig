@@ -21,6 +21,7 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
+    // START: onto OpCode patterns
     const raw_data = try std.Io.Dir.cwd().readFileAlloc(io, args[1], gpa, .limited(0xFFFFFFFF));
     defer gpa.free(raw_data);
 
